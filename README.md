@@ -7,14 +7,14 @@ redis server
 
 ## `How to run`
 
-### 'run with docker'
+### `run with docker`
 
 ```bash
 # build docker image 
 docker-compose up --build
 ```
 
-### 'run with python and redis on host machine'
+### `run with python and redis on host machine`
 
 ```bash
 
@@ -39,4 +39,4 @@ uvicorn main:app --reload
 
 
 ## License
-[github](https://github.com/Huy-8bit/project_1)
+[Source code create by Huy8bit](https://github.com/Huy-8bit/Cloud-Backup-System)
