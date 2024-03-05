@@ -39,4 +39,4 @@ uvicorn main:app --reload
 
 
 ## License
-[Source code create by Huy8bit](https://github.com/Huy-8bit/Cloud-Backup-System)
+[Source code](https://github.com/Huy-8bit/project_1)
