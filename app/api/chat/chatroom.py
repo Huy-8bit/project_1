@@ -15,7 +15,6 @@ from pathlib import Path
 router = APIRouter()
 
 room_collection = database.get_collection("chatrooms")
-
 chat_collection = database.get_collection("chats")
 
 
@@ -63,6 +62,30 @@ async def find_room(room_name: str = Form(...)):
         return {"message": "Room not found"}
 
 
+# @router.post("/upload")
+# async def upload_file(
+#     user_id: str = Depends(get_current_active_user),
+#     room_id: str = Form(...),
+#     file: UploadFile = File(...),
+# ):
+#     save_path = "./data/uploaded_files"
+#     if not check_user_exit(user_id):
+#         raise HTTPException(status_code=404, detail="User not found")
+
+#     room = await room_collection.find_one({"room_id": room_id})
+#     if not room:
+#         raise HTTPException(status_code=404, detail="Room not found")
+
+#     Path(save_path).mkdir(parents=True, exist_ok=True)
+
+#     file_path = os.path.join(save_path, file.filename)
+
+#     with open(file_path, "wb") as buffer:
+#         while data := await file.read(1024):
+#             buffer.write(data)
+#     return {"message": "File uploaded successfully", "file_path": file_path}
+
+
 @router.post("/upload")
 async def upload_file(
     user_id: str = Depends(get_current_active_user),
@@ -77,11 +100,32 @@ async def upload_file(
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
+    file_extension = os.path.splitext(file.filename)[1]
+
+    namefileid = (
+        hashlib.sha256(f"{file.filename}{time.time()}".encode()).hexdigest()
+        + file_extension
+    )
+
     Path(save_path).mkdir(parents=True, exist_ok=True)
 
-    file_path = os.path.join(save_path, file.filename)
-
+    file_path = os.path.join(save_path, namefileid)
     with open(file_path, "wb") as buffer:
         while data := await file.read(1024):
             buffer.write(data)
-    return {"message": "File uploaded successfully", "file_path": file_path}
+
+    chat_collection.insert_one(
+        {
+            "user_id": user_id,
+            "room_id": room_id,
+            "original_file_name": file.filename,
+            "file_id": namefileid,
+            "upload_time": time.time(),
+        }
+    )
+
+    return {
+        "message": "File uploaded successfully",
+        "file_path": file_path,
+        "file_id": namefileid,
+    }
