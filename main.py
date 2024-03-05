@@ -1,6 +1,7 @@
 from fastapi import FastAPI, BackgroundTasks
 from app.api.auth import register, login
 from fastapi.middleware.cors import CORSMiddleware
+from app.core.database import database
 import redis
 import threading
 from threading import Event
@@ -18,8 +19,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# redis_client = redis.Redis(host="localhost", port=6379, db=0)
-redis_client = redis.Redis(host="redis-1", port=6379, db=0)
+redis_client = redis.Redis(host="redis", port=6379, db=0)
+# redis_client = redis.Redis(host="redis-1",s port=6379, db=0)
 
 
 listening_thread_active = True
@@ -51,7 +52,40 @@ app.include_router(login.router, prefix="/auth", tags=["auth"])
 
 @app.get("/")
 async def root():
-    return {"message": "Hello Cloud system drive"}
+    return {"message": "Hello Project 1!"}
+
+
+@app.get("/healthCheck")
+async def healthCheck():
+    mongoDb = False
+    redisDb = False
+    try:
+        # add key value to redis
+        redis_client.set("healthCheck", "redis")
+        # get key value from redis
+        checkRedis = redis_client.get("healthCheck")
+        if checkRedis:
+            redisDb = True
+    except Exception as e:
+        print(e)
+
+    try:
+        # check if mongoDb is created collection test
+        checkMongo = await database.command("ping")
+
+        if checkMongo:
+            mongoDb = True
+    except Exception as e:
+        print(e)
+
+    if mongoDb and redisDb:
+        return {"message": "All services are up and running"}
+    else:
+        return {
+            "message": "Some services are down",
+            "mongoDb": mongoDb,
+            "redisDb": redisDb,
+        }
 
 
 if __name__ == "__main__":

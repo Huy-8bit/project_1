@@ -20,4 +20,4 @@ def verify_access_token(token: str):
         decoded_jwt = jwt.decode(token, secret_key, algorithms=["HS256"])
         return decoded_jwt
     except:
-        return False
+        return Falseg

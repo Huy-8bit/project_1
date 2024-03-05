@@ -4,7 +4,8 @@ from app.api.auth.models import UserLogin, User
 from app.api.auth.accesstoken import create_access_token
 from app.api.auth.accesstoken import verify_access_token
 import hashlib
-from fastapi.middleware.cors import CORSMiddleware
+
+# from fastapi.middleware.cors import CORSMiddleware
 
 router = APIRouter()
 
@@ -15,19 +16,17 @@ def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 
-async def check_user_login(email, password):
-    user = await user_collection.find_one({"email": email})
-    if user and user["password"] == hash_password(password):
-        return True
-    return False
+async def check_user_login(email: str, password: str) -> bool:
+    user = await user_collection.find_one({"email": email, "password": password})
+    return user is not None
 
 
 @router.post("/login")
-async def login(user: UserLogin):
-    if not await check_user_login(user.email, user.password):
+async def login(email: str = Form(...), password: str = Form(...)):
+    if not await check_user_login(email, password):
         raise HTTPException(status_code=400, detail="Incorrect email or password")
 
-    user = await user_collection.find_one({"email": user.email})
+    user = await user_collection.find_one({"email": email})
     if user:
         user_id = user["_id"]
     else:

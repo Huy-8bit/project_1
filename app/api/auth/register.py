@@ -1,30 +1,32 @@
-from app.api.auth.models import RegistrationRequest
+from app.api.auth.models import (
+    RegistrationRequest,
+    EmailRequest,
+    PasswordResetRequest,
+    PasswordResetModel,
+)
 import hashlib
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
-from fastapi.responses import FileResponse
-from app.core.database import database
-from app.api.auth.models import EmailRequest
-import random
+from fastapi import APIRouter, HTTPException, Form, File, UploadFile
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from app.api.auth.models import PasswordResetRequest, PasswordResetModel, UserInfo
-from app.api.auth.accesstoken import create_access_token
-from app.api.auth.accesstoken import verify_access_token
-from app.api.auth.dependencies import get_current_user
-from bson import ObjectId
-import os
-import uuid
-import base64
+from app.core.database import database
+import random
 import time
 
 router = APIRouter()
-user_collection = database.get_collection("users")
+user_collection = database.get_collection("usersInfo")
 
-UPLOAD_DIRECTORY = "./data/avatars/"
 
-sender_email = "webchat6969@gmail.com"
-sender_password = "fxvn uepm wsqe pqmw"
+SENDER_EMAIL = "webchat6969@gmail.com"
+SENDER_PASSWORD = "fxvn uepm wsqe pqmw"
+
+
+def generate_user_id(username: str, email: str):
+    # Concatenate username and email
+    user_info = f"{username}{email}"
+    # Hash the concatenated string using SHA256
+    hashed_info = hashlib.sha256(user_info.encode()).hexdigest()
+    return hashed_info
 
 
 def send_email(sender_email, sender_password, receiver_email, subject, message):
@@ -40,37 +42,21 @@ def send_email(sender_email, sender_password, receiver_email, subject, message):
 
 
 def send_verification_email(email: str, code: str):
-    sender_email = "webchat6969@gmail.com"
-    sender_password = "fxvn uepm wsqe pqmw"
     receiver_email = email
     subject = "Webchat Verification Code"
     message = f"Your verification code is {code}"
-    send_email(sender_email, sender_password, receiver_email, subject, message)
+    send_email(SENDER_EMAIL, SENDER_PASSWORD, receiver_email, subject, message)
 
 
-async def check_account(email):
-    user = await user_collection.find_one({"email": email})
-    if user:
-        if "password" in user:
-            return True
-        else:
-            return False
+async def check_account(email, username):
+    userName = await user_collection.find_one({"username": username})
+    userEmail = await user_collection.find_one({"email": email})
+
+    # username or useremail already exists return True
+    if userName or userEmail:
+        return True
     else:
         return False
-
-
-@router.post("/request-verification")
-async def request_verification(email_request: EmailRequest):
-    if await check_account(email_request.email):
-        raise HTTPException(status_code=400, detail="Email has been registered")
-    verification_code = str(random.randint(100000, 999999))
-    temp_data = {
-        "email": email_request.email,
-        "verification_code": verification_code,
-    }
-    await user_collection.insert_one(temp_data)
-    send_verification_email(email_request.email, verification_code)
-    return {"message": "Verification email sent"}
 
 
 def hash_password(password):
@@ -78,47 +64,68 @@ def hash_password(password):
 
 
 @router.post("/register")
-async def register(registration_request: RegistrationRequest):
-    temp_data = await user_collection.find_one({"email": registration_request.email})
-    if (
-        not temp_data
-        or temp_data["verification_code"] != registration_request.verification_code
-    ):
-        raise HTTPException(status_code=400, detail="Invalid verification code")
-    hashed_password = hash_password(registration_request.password)
-    timestamp = time.time()
-    unique_id = hashlib.sha256(
-        f"{registration_request.email}{timestamp}".encode()
-    ).hexdigest()
-    user_document = {
-        "_id": unique_id,
-        "email": registration_request.email,
-        "password": hashed_password,
+async def register_user(
+    email: str = Form(...),
+    username: str = Form(...),
+    password: str = Form(...),
+):
+    if await check_account(email, username):
+        raise HTTPException(status_code=400, detail="Account has been registered")
+
+    user_id = generate_user_id(username, email)
+
+    # delete verification code if it exists
+    await user_collection.delete_one({"email": email})
+
+    verification_code = str(random.randint(100000, 999999))
+    user_data = {
+        "id": user_id,
+        "email": email,
+        "username": username,
+        "password": hash_password(password),
+        "verification_code": verification_code,
     }
-    result = await user_collection.insert_one(user_document)
-    await user_collection.delete_one({"email": registration_request.email})
-    return {"user_id": unique_id, "email": registration_request.email}
+    await user_collection.insert_one(user_data)
+    send_verification_email(email, verification_code)
+    return {"message": "Verification email sent"}
+
+
+@router.post("/verify-registration")
+async def verify_registration(
+    email: str = Form(...),
+    verification_code: str = Form(...),
+):
+    user_data = await user_collection.find_one({"email": email})
+    if not user_data or user_data["verification_code"] != verification_code:
+        raise HTTPException(status_code=400, detail="Invalid verification code")
+
+    await user_collection.update_one(user_data, {"$unset": {"verification_code": ""}})
+    return {"message": "Account has been verified"}
 
 
 @router.post("/request-password-reset")
-async def request_password_reset(request: PasswordResetRequest):
-    user = await user_collection.find_one({"email": request.email})
+async def request_password_reset(email: str = Form(...)):
+    user = await user_collection.find_one({"email": email})
     if not user:
         raise HTTPException(
             status_code=404, detail="User with this email does not exist"
         )
     verification_code = str(random.randint(100000, 999999))
     await user_collection.update_one(
-        {"email": request.email}, {"$set": {"reset_code": verification_code}}
+        {"email": email}, {"$set": {"reset_code": verification_code}}
     )
-    send_verification_email(request.email, verification_code)
+    send_verification_email(email, verification_code)
     return {"message": "Password reset email sent"}
 
 
 @router.post("/reset-password")
-async def reset_password(reset_request: PasswordResetModel):
+async def reset_password(
+    email: str = Form(...),
+    verification_code: str = Form(...),
+    new_password: str = Form(...),
+):
     user = await user_collection.find_one(
-        {"email": reset_request.email, "reset_code": reset_request.verification_code}
+        {"email": email, "reset_code": verification_code}
     )
     if not user:
         raise HTTPException(
@@ -126,10 +133,10 @@ async def reset_password(reset_request: PasswordResetModel):
         )
     else:
         await user_collection.update_one(
-            {"email": reset_request.email}, {"$unset": {"reset_code": ""}}
+            {"email": email}, {"$unset": {"reset_code": ""}}
         )
-    hashed_password = hash_password(reset_request.new_password)
+    hashed_password = hash_password(new_password)
     await user_collection.update_one(
-        {"email": reset_request.email}, {"$set": {"password": hashed_password}}
+        {"email": email}, {"$set": {"password": hashed_password}}
     )
     return {"message": "Password has been reset successfully"}

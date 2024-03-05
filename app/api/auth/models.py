@@ -3,8 +3,7 @@ from pydantic import BaseModel
 
 class RegistrationRequest(BaseModel):
     email: str
-    verification_code: str
-    password: str
+    username: str
 
 
 class UserCreate(BaseModel):
@@ -34,9 +33,3 @@ class PasswordResetModel(BaseModel):
     email: str
     verification_code: str
     new_password: str
-
-
-class UserInfo(BaseModel):
-    email: str = None
-    name: str
-    phone: str
