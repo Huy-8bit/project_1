@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta
+from app.core.database import database
+
 import jwt
 
 
@@ -6,6 +8,9 @@ secret_key = "drive_sync_secret_key"
 
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 600
+
+
+userData = database.get_collection("usersInfo")
 
 
 def create_access_token(user_id: str):
@@ -20,4 +25,9 @@ def verify_access_token(token: str):
         decoded_jwt = jwt.decode(token, secret_key, algorithms=["HS256"])
         return decoded_jwt
     except:
-        return Falseg
+        return False
+
+
+def check_user_exit(id) -> bool:
+    user = userData.find_one({"id": id})
+    return user is not None

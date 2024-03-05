@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Form
 from app.core.database import database
 from app.api.auth.models import UserLogin, User
-from app.api.auth.accesstoken import create_access_token
+from app.core.accesstoken import create_access_token
 import hashlib
 from fastapi.middleware.cors import CORSMiddleware
 

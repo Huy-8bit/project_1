@@ -3,8 +3,6 @@ FROM python:3.9
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y redis-server
-
 COPY requirements.txt .
 
 RUN python -m venv lib

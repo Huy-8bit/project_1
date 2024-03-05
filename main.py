@@ -1,13 +1,13 @@
 from fastapi import FastAPI, BackgroundTasks
 from app.api.auth import register, login
+from app.api.chat import chatroom
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import database
 import redis
 import threading
 from threading import Event
-import asyncio
-import json
 from app.core.redis_utils import get_redis_client, listen_for_messages
+
 
 app = FastAPI()
 
@@ -20,7 +20,6 @@ app.add_middleware(
 )
 
 redis_client = redis.Redis(host="redis", port=6379, db=0)
-# redis_client = redis.Redis(host="redis-1",s port=6379, db=0)
 
 
 listening_thread_active = True
@@ -48,6 +47,7 @@ async def shutdown_event():
 
 app.include_router(register.router, prefix="/auth", tags=["auth"])
 app.include_router(login.router, prefix="/auth", tags=["auth"])
+app.include_router(chatroom.router, prefix="/chatroom", tags=["chatroom"])
 
 
 @app.get("/")

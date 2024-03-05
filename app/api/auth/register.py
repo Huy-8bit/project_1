@@ -1,17 +1,10 @@
-from app.api.auth.models import (
-    RegistrationRequest,
-    EmailRequest,
-    PasswordResetRequest,
-    PasswordResetModel,
-)
 import hashlib
-from fastapi import APIRouter, HTTPException, Form, File, UploadFile
+from fastapi import APIRouter, HTTPException, Form
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from app.core.database import database
 import random
-import time
 
 router = APIRouter()
 user_collection = database.get_collection("usersInfo")
