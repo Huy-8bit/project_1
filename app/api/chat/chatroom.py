@@ -113,8 +113,8 @@ async def upload_file_encrypted(
 
     password_hash = hash_password(password)
     key_file_name = f"{password_hash}.key"
-    # key_file_path = os.path.join("data", "key", key_file_name)
-    key_file_path = f"./data/key/{key_file_name}"
+    key_file_path = os.path.join("data", "key", key_file_name)
+    # key_file_path = f"./data/key/{key_file_name}"
     if not os.path.exists(key_file_path):
         raise HTTPException(status_code=404, detail="Encryption key not found")
 
@@ -167,8 +167,8 @@ async def download_file_encrypted(
 
     password_hash = hashlib.sha256(password.encode()).hexdigest()
     key_file_name = f"{password_hash}.key"
-    # key_file_path = os.path.join("data", "key", key_file_name)
-    key_file_path = f"./data/key/{key_file_name}"
+    key_file_path = os.path.join("data", "key", key_file_name)
+    # key_file_path = f"./data/key/{key_file_name}"
 
     if not os.path.exists(key_file_path):
         raise HTTPException(status_code=404, detail="Encryption key not found")
