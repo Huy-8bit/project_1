@@ -18,14 +18,18 @@ docker-compose up --build
 
 ```bash
 
-# start redis server
-redis-server
+# start redis server with docker
+docker container run -d --name redis -p 6379:6379 redis:latest
+
+# start mongodb server with docker
+docker container run -d --name mongo -p 27017:27017 mongo:latest
+
 
 # create virtual environment
 python -m venv lib
 
 # activate virtual environment
-source lib/Scripts/activate
+source lib/bin/activate
 
 # install dependencies
 pip install -r requirements.txt
