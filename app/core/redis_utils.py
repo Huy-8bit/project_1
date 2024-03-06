@@ -2,12 +2,12 @@ import redis
 import json
 
 
-# def get_redis_client():
-#     return redis.Redis(host="redis", port=6379, db=0)
-
-
 def get_redis_client():
-    return redis.Redis(host="localhost", port=6379, db=0)
+    return redis.Redis(host="redis", port=6379, db=0)
+
+
+# def get_redis_client():
+#     return redis.Redis(host="localhost", port=6379, db=0)
 
 
 def listen_for_messages(client, stop_event):
