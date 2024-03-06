@@ -76,8 +76,8 @@ async def create_chatroom(
     password_hash = hash_password(room.password)
 
     key_file_name = f"{password_hash}.key"
-    # key_file_path = os.path.join("data", "key", key_file_name)
-    key_file_path = f"./data/key/{key_file_name}"
+    key_file_path = os.path.join("data", "key", key_file_name)
+    # key_file_path = f"./data/key/{key_file_name}"
     print(key_file_path)
 
     ensure_path_exists(os.path.dirname(key_file_path))
