@@ -2,8 +2,7 @@
 
 
 ## `requirements`
-python 3.9 - mongodb local
-redis server
+python 3.9 - docker - docker-compose 
 
 ## `How to run`
 
