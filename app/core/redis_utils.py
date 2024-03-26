@@ -1,9 +1,18 @@
 import redis
 import json
 
+# read ip from file env
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+ip = os.getenv("REDIS_IP")
+
 
 def get_redis_client():
-    return redis.Redis(host="redis", port=6379, db=0)
+    return redis.Redis(host=ip, port=6379, db=0)
 
 
 # def get_redis_client():

@@ -5,9 +5,9 @@ WORKDIR /app
 
 COPY requirements.txt .
 
-RUN python -m venv lib
+RUN python -m venv virtualenv
 
-RUN /bin/bash -c "source lib/bin/activate"
+RUN /bin/bash -c "source virtualenv/bin/activate"
 
 RUN pip install -r requirements.txt
 RUN pip install PyJWT
