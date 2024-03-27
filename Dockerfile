@@ -5,12 +5,8 @@ WORKDIR /app
 
 COPY requirements.txt .
 
-RUN python -m venv virtualenv
-
-RUN /bin/bash -c "source virtualenv/bin/activate"
-
 RUN pip install -r requirements.txt
-RUN pip install PyJWT
+# RUN pip install -U PyJWT
 
 RUN mkdir -p data/key data/encrypted_files
 
