@@ -40,9 +40,7 @@ from bson import ObjectId
 router = APIRouter()
 
 
-def clean_data(
-    item, exclude_keys=["_id", "room_id", "file_path", "uploaded_by", "key_hash"]
-):
+def clean_data(item, exclude_keys=["_id", "file_path", "key_hash"]):
     if isinstance(item, ObjectId):
         return str(item)
     if isinstance(item, list):
@@ -59,6 +57,12 @@ def clean_data(
 room_collection = database.get_collection("chatrooms")
 chat_collection = database.get_collection("chats")
 relationship_collection = database.get_collection("relationship")
+user_collection = database.get_collection("usersInfo")
+
+
+async def get_user_name(user_id):
+    user = await user_collection.find_one({"id": user_id})
+    return user["username"]
 
 
 def generate_file_name(original_name: str) -> str:
@@ -130,7 +134,6 @@ async def create_chatroom(
     )
 
 
-# get all roooms with the user is member
 @router.get("/rooms")
 async def get_rooms(user_id: str = Depends(get_current_active_user)):
     if not check_user_exit(user_id):
@@ -140,6 +143,34 @@ async def get_rooms(user_id: str = Depends(get_current_active_user)):
     rooms = await cursor.to_list(length=100)
     cleaned_rooms = clean_data(rooms)
     return cleaned_rooms
+
+
+@router.post("/add_rooms")
+async def add_rooms(
+    room_id: str = Form(...),
+    user_add: str = Form(...),
+    keyfile: UploadFile = File(...),
+    user_id: str = Depends(get_current_active_user),
+):
+    if not check_user_exit(user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+
+    room_data = await room_collection.find_one({"room_id": room_id})
+    if not room_data:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    # check key
+    uploaded_key = await keyfile.read()
+    uploaded_key_hash = hashlib.sha256(uploaded_key).hexdigest()
+    if uploaded_key_hash != room_data.get("key_hash"):
+        raise HTTPException(status_code=403, detail="Invalid key file")
+
+    if user_add in room_data["users"]:
+        raise HTTPException(status_code=400, detail="User already in room")
+
+    room_data["users"].append(user_add)
+    room_collection.update_one({"room_id": room_id}, {"$set": room_data})
+    return {"message": "User added to room"}
 
 
 @router.post("/upload")
@@ -187,6 +218,75 @@ async def upload_file_encrypted(
         "file_id": file_id,
         "file_name": file_name,
     }
+
+
+@router.post("/upload_text")
+async def upload_text_encrypted(
+    room_id: str = Form(...),
+    keyfile: UploadFile = File(...),
+    user_id: str = Depends(get_current_active_user),
+    text: str = Form(...),
+):
+
+    if not check_user_exit(user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+
+    room_data = await room_collection.find_one({"room_id": room_id})
+    if not room_data:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    uploaded_key = await keyfile.read()
+    uploaded_key_hash = hashlib.sha256(uploaded_key).hexdigest()
+    if uploaded_key_hash != room_data.get("key_hash"):
+        raise HTTPException(status_code=403, detail="Invalid key file")
+
+    # encrypt text
+    key = Fernet(uploaded_key)
+    encrypted_data = key.encrypt(text.encode())
+
+    chat_data = {
+        "room_id": room_id,
+        "text": encrypted_data,
+        "upload_time": time.time(),
+        "uploaded_by": user_id["id"],
+    }
+    chat_collection.insert_one(chat_data)
+
+    return {"message": "Text uploaded successfully"}
+
+
+@router.get("/chats")
+async def get_chats(
+    room_id: str = Form(...),
+    keyfile: UploadFile = File(...),
+    user_id: str = Depends(get_current_active_user),
+):
+    if not check_user_exit(user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+
+    room_data = await room_collection.find_one({"room_id": room_id})
+    if not room_data:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    uploaded_key = await keyfile.read()
+    uploaded_key_hash = hashlib.sha256(uploaded_key).hexdigest()
+    if uploaded_key_hash != room_data.get("key_hash"):
+        raise HTTPException(status_code=403, detail="Invalid key file")
+
+    cursor = chat_collection.find({"room_id": room_id})
+    chats = await cursor.to_list(length=100)
+    # if chat is text, decrypt it
+    for chat in chats:
+        if "text" in chat:
+            key = Fernet(uploaded_key)
+            chat["text"] = key.decrypt(chat["text"]).decode()
+    cleaned_chats = clean_data(chats)
+
+    # get user name to display
+    for chat in cleaned_chats:
+        chat["uploaded_by"] = await get_user_name(chat["uploaded_by"])
+
+    return cleaned_chats
 
 
 def decrypt_file(encrypted_data: bytes, key: bytes) -> bytes:
