@@ -40,7 +40,9 @@ from bson import ObjectId
 router = APIRouter()
 
 
-def clean_data(item, exclude_keys=["_id", "room_id", "file_path", "uploaded_by"]):
+def clean_data(
+    item, exclude_keys=["_id", "room_id", "file_path", "uploaded_by", "key_hash"]
+):
     if isinstance(item, ObjectId):
         return str(item)
     if isinstance(item, list):
@@ -56,6 +58,7 @@ def clean_data(item, exclude_keys=["_id", "room_id", "file_path", "uploaded_by"]
 
 room_collection = database.get_collection("chatrooms")
 chat_collection = database.get_collection("chats")
+relationship_collection = database.get_collection("relationship")
 
 
 def generate_file_name(original_name: str) -> str:
@@ -71,6 +74,13 @@ def hash_password(password):
 def crate_rooom_id(roomName: str) -> str:
     room_id = f"{roomName}{time.time()}{random.randint(1, 1000)}"
     return hashlib.sha256(room_id.encode()).hexdigest()
+
+
+def check_membership(user_id, room_id):
+    room_data = room_collection.find_one({"room_id": room_id})
+    if not room_data:
+        return False
+    return user_id in room_data["users"]
 
 
 @router.post("/find_room")
@@ -106,6 +116,7 @@ async def create_chatroom(
     room_data["created_at"] = time.time()
     room_data["key_hash"] = key_hash
     room_data["created_by"] = user_id["id"]
+    room_data["users"] = [user_id["id"]]
     # del room_data["password"]
     room_collection.insert_one(room_data)
 
@@ -119,35 +130,16 @@ async def create_chatroom(
     )
 
 
-@router.post("/join_room")
-async def join_chatroom(
-    room_id: str = Form(...),
-    keyfile: UploadFile = File(...),
-    user_id: str = Depends(get_current_active_user),
-):
-
+# get all roooms with the user is member
+@router.get("/rooms")
+async def get_rooms(user_id: str = Depends(get_current_active_user)):
     if not check_user_exit(user_id):
         raise HTTPException(status_code=404, detail="User not found")
 
-    room_data = await room_collection.find_one({"room_id": room_id})
-
-    if not room_data:
-        raise HTTPException(status_code=404, detail="Room not found")
-
-    uploaded_key = await keyfile.read()
-    uploaded_key_hash = hashlib.sha256(uploaded_key).hexdigest()
-    if uploaded_key_hash != room_data.get("key_hash"):
-        raise HTTPException(status_code=403, detail="Invalid key file")
-
-    file_room = (
-        await chat_collection.find({"room_id": room_id})
-        .sort("upload_time", -1)
-        .limit(100)
-        .to_list(length=100)
-    )
-
-    cleaned_files = clean_data(file_room)
-    return {"message": "Joined room successfully", "recent_files": cleaned_files}
+    cursor = room_collection.find({"users": user_id["id"]})
+    rooms = await cursor.to_list(length=100)
+    cleaned_rooms = clean_data(rooms)
+    return cleaned_rooms
 
 
 @router.post("/upload")

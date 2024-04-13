@@ -8,6 +8,7 @@ import random
 
 router = APIRouter()
 user_collection = database.get_collection("usersInfo")
+relationship_collection = database.get_collection("relationship")
 
 
 SENDER_EMAIL = "webchat6969@gmail.com"
@@ -67,7 +68,6 @@ async def register_user(
 
     user_id = generate_user_id(username, email)
 
-    # delete verification code if it exists
     await user_collection.delete_one({"email": email})
 
     verification_code = str(random.randint(100000, 999999))
@@ -80,6 +80,15 @@ async def register_user(
     }
     await user_collection.insert_one(user_data)
     send_verification_email(email, verification_code)
+
+    await relationship_collection.insert_one(
+        {
+            "user_id": user_id,
+            "friends": [],
+            "requests": [],
+        }
+    )
+
     return {"message": "Verification email sent"}
 
 
@@ -117,6 +126,7 @@ async def reset_password(
     verification_code: str = Form(...),
     new_password: str = Form(...),
 ):
+    print(email, verification_code, new_password)
     user = await user_collection.find_one(
         {"email": email, "reset_code": verification_code}
     )

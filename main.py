@@ -1,6 +1,7 @@
 from fastapi import FastAPI, BackgroundTasks
 from app.api.auth import register, login
 from app.api.chat import chatroom
+from app.api.relationship import relationship
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import database
 import redis
@@ -48,6 +49,7 @@ async def shutdown_event():
 app.include_router(register.router, prefix="/auth", tags=["auth"])
 app.include_router(login.router, prefix="/auth", tags=["auth"])
 app.include_router(chatroom.router, prefix="/chatroom", tags=["chatroom"])
+app.include_router(relationship.router, prefix="/relationship", tags=["relationship"])
 
 
 @app.get("/")
