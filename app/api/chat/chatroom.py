@@ -255,7 +255,7 @@ async def upload_text_encrypted(
     return {"message": "Text uploaded successfully"}
 
 
-@router.get("/chats")
+@router.post("/chats")
 async def get_chats(
     room_id: str = Form(...),
     keyfile: UploadFile = File(...),
